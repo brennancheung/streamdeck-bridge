@@ -2,7 +2,7 @@
 
 ## What
 
-A Rust bridge that provides direct USB HID control of the Elgato Stream Deck XL, exposed via a WebSocket API. The bridge is a standalone binary — a thin, reliable layer between the hardware and any client application. It handles device communication, image caching, state diffing, and the WebSocket server. All higher-level logic (modes, rendering, automation) lives in the client — in our case, an Elixir Phoenix app in a separate repo.
+A Rust bridge that provides direct USB HID control of the Elgato Stream Deck XL, exposed via a WebSocket API. The bridge is a standalone binary — a thin, reliable layer between the hardware and any client application. It handles device communication, image caching, state diffing, and the WebSocket server. All higher-level logic (modes, rendering, automation) lives in client code.
 
 ## Why
 
@@ -20,7 +20,7 @@ The gap: a clean, protocol-driven interface to Stream Deck hardware that any app
 
 **Individual key events, not state bitmaps.** The hardware sends a 32-byte state bitmap on every change. The bridge diffs it and emits discrete press/release events per key. The client receives `key_down(5)` and `key_up(5)`, not raw bitmaps.
 
-**WebSocket is the protocol.** The bridge runs a WebSocket server on localhost. Any number of clients can connect — the Phoenix app, a CLI tool, a test harness, a monitoring script. Binary frames for image data, JSON text frames for commands and events.
+**WebSocket is the protocol.** The bridge runs a WebSocket server on localhost. Any number of clients can connect — an application server, a CLI tool, a test harness, a monitoring script. Binary frames for image data, JSON text frames for commands and events.
 
 **Standalone binary.** No runtime dependencies. `cargo build --release` produces one file. Start it, connect to it, done.
 
@@ -28,8 +28,7 @@ The gap: a clean, protocol-driven interface to Stream Deck hardware that any app
 
 ```
 ┌──────────────────────────────────────────┐
-│          Client (Phoenix App)            │
-│              (separate repo)             │
+│          Client Application(s)           │
 │                                          │
 │  Modes, rendering, automation,           │
 │  context awareness, integrations         │
@@ -79,10 +78,10 @@ The gap: a clean, protocol-driven interface to Stream Deck hardware that any app
 - Panel-wide image update (bridge slices into keys)
 - CLI mode for one-shot commands
 
-### Out of Scope (Phoenix app, separate repo)
+### Out of Scope (client applications)
 - Modes, layers, and interaction patterns
 - Rendering engine (text, icons, gauges, charts)
-- macOS automation (volume, media, keyboard, windows)
+- OS automation (volume, media, keyboard, windows)
 - Context awareness and application detection
 - External service integrations (CI, Home Assistant, etc.)
 - Chord detection and gesture recognition

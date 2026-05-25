@@ -6,7 +6,7 @@
 
 The bridge is built in Rust. Swift was considered for native macOS integration (menu bar via `NSStatusItem`, login item via `SMAppService`) but rejected because:
 
-- The `elgato-streamdeck` Rust crate already exists with 11 models supported. Swift has no viable Stream Deck library — we'd write raw IOKit HID code.
+- The `elgato-streamdeck` Rust crate already exists with 15 models supported. Swift has no viable Stream Deck library — we'd write raw IOKit HID code.
 - `hidapi`, `tokio-tungstenite`, and `image-rs` are mature Rust crates that cover the entire bridge spec. The Swift equivalents (IOKit, swift-nio-websocket, CoreGraphics) are more verbose and less commonly used for this type of server workload.
 - Rust produces a single static binary with no runtime dependencies.
 - The only meaningful Swift advantage is the menu bar, which can be handled by a thin Swift wrapper (~50 lines) that launches and monitors the Rust binary, if we ever want it.
@@ -15,22 +15,18 @@ Running on startup is language-agnostic (launchd plist in `~/Library/LaunchAgent
 
 ### D-2: WebSocket protocol (2026-05-24)
 
-The bridge exposes a WebSocket server on localhost (default port 9001). Chosen over stdin/stdout BEAM Port because:
+The bridge exposes a WebSocket server on localhost (default port 9001). Chosen over alternatives:
 
-- The bridge is a standalone binary, testable independently with any WebSocket client
-- Multiple clients can connect simultaneously
-- Binary frames handle image data without base64 overhead
-- Decoupled from the BEAM — the Phoenix app connects as a client, not a parent process
-
-### D-3: Elixir Phoenix for the client application (2026-05-24)
-
-Layers 4-6 (client SDK, application logic, integrations) will live in a separate Phoenix app repo. The bridge repo has no Elixir code. Phoenix was chosen for its real-time capabilities (PubSub, LiveView), supervision trees, and the team's preference.
+- **vs. stdin/stdout pipes**: WebSocket is standalone, testable with any WS client, supports multiple simultaneous clients, handles binary frames without base64 overhead, and decouples the bridge from any particular parent process.
+- **vs. Unix socket**: WebSocket gives us structured framing (text/binary), broad client library support, and browser compatibility for testing. Unix sockets would need a custom framing protocol.
+- **vs. TCP**: Same as Unix socket — we'd build our own framing on top.
+- **vs. gRPC**: Heavier dependency, requires protobuf tooling, less natural for browser-based testing.
 
 ---
 
 ## Layers
 
-The system is organized into six layers. Layers 1-3 live in this repo (the Rust bridge). Layers 4-6 live in the Phoenix app (separate repo, future work).
+The system is organized into six layers. Layers 1–3 live in this repo (the Rust bridge). Layers 4–6 are implemented by client applications.
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -43,7 +39,7 @@ The system is organized into six layers. Layers 1-3 live in this repo (the Rust 
 ├─────────────────────────────────────────────────────┤
 │  Layer 4: Client SDK                                │
 │  Typed API over WebSocket, auto-reconnect,          │
-│  PubSub event dispatch                              │
+│  event dispatch                                     │
 ╠═════════════════════════════════════════════════════╣  ← repo boundary
 │  Layer 3: WebSocket Protocol                        │
 │  JSON commands/events, binary image frames,         │
@@ -86,8 +82,8 @@ Translates between the raw HID protocol and a meaningful device API.
 - Maintain image cache (32 slots, one per key)
 - Diff button state bitmaps into individual press/release events with timestamps
 - Encode images to JPEG, flip axes, chunk into HID reports
-- Slice panel-wide images into 32 individual key images
-- Solid color fill via HID command (bypassing JPEG)
+- Slice panel-wide images into individual key images
+- Solid color fill via JPEG-encoded solid image
 - Brightness control (0-100 → HID feature report)
 - Device info queries (serial number, firmware version)
 - Restore cached images after device reconnect
@@ -107,23 +103,24 @@ Network interface to the bridge. Runs a WebSocket server on localhost.
 - Send device state on client connect
 - Handle client connect/disconnect gracefully
 - Configurable listen port (default: 9001)
-- CLI mode for one-shot commands (connect, send, disconnect)
 
 **Does not know about:** Modes, rendering, automation. Passes messages between clients and the device abstraction layer.
 
+See [`protocol.md`](protocol.md) for the full WebSocket protocol reference.
+
 ---
 
-### Layer 4: Client SDK (future — Phoenix repo)
+### Layer 4: Client SDK (client applications)
 
-Elixir GenServer that wraps the WebSocket connection.
+A library or module that wraps the WebSocket connection for a specific language/framework.
 
 **Responsibilities:**
 - WebSocket client with auto-reconnection and exponential backoff
-- Typed Elixir API: `set_key_image/2`, `set_key_color/4`, `set_brightness/1`, `clear_key/1`, `clear_all/0`
-- Phoenix.PubSub broadcast of key press/release events
+- Typed API for setting images, colors, brightness
+- Event dispatch for key press/release events
 - Device state tracking (connected/disconnected, serial, model)
 
-### Layer 5: Application Logic (future — Phoenix repo)
+### Layer 5: Application Logic (client applications)
 
 Where all the interesting behavior lives.
 
@@ -132,14 +129,14 @@ Where all the interesting behavior lives.
 - Chord and gesture detection (long press, double tap, simultaneous press)
 - Context-aware adaptation (active app detection, regional button updates)
 - Rendering engine (text, icons, gauges, charts → 96x96 images)
-- macOS automation (volume, media, app launch, keyboard macros, window management)
+- OS automation (volume, media, app launch, keyboard macros, window management)
 
-### Layer 6: Integrations (future — Phoenix repo)
+### Layer 6: Integrations (client applications)
 
 Connectors to external services.
 
 **Responsibilities:**
 - CI/CD status polling (GitHub Actions)
-- Home Assistant (entity state, service calls)
-- Slack (notification counts)
+- Home automation (entity state, service calls)
+- Messaging (notification counts)
 - Custom webhook endpoints

@@ -1,33 +1,16 @@
 # Stream Deck Bridge
 
-Rust binary that provides USB HID control of the Elgato Stream Deck XL, exposed via a WebSocket API on `localhost:9001`.
+Rust binary that turns the Elgato Stream Deck XL into a network-accessible device via WebSocket on `localhost:9001`.
 
 ## Architecture
 
 Three layers, all in this repo:
 
-1. **USB HID Driver** — Raw HID communication via `elgato-streamdeck` crate
-2. **Device Abstraction** — Image cache (32 slots), button state diffing, JPEG encoding
+1. **USB HID Driver** — Raw HID communication via the `elgato-streamdeck` crate
+2. **Device Abstraction** — Image cache (32 slots), button state diffing, JPEG encoding, dedup
 3. **WebSocket Protocol** — JSON text frames for commands/events, binary frames for images
 
-Higher-level logic (modes, rendering, automation) lives in a separate Phoenix app repo.
-
-See `docs/architecture.md` for full layer definitions and decision records.
-
-## Build & Run
-
-```bash
-cargo build --release
-./target/release/streamdeck-bridge --port 9001
-```
-
-Requires `hidapi` system library (installed via `brew install hidapi` on macOS).
-
-## Key decisions
-
-- **Rust** over Swift/Node — single static binary, existing HID crate, mature async ecosystem (D-1)
-- **WebSocket** over stdin/stdout BEAM Port — standalone, testable, multi-client, binary frames (D-2)
-- **Phoenix** for the client app in a separate repo (D-3)
+Client applications connect over WebSocket and implement their own logic (modes, rendering, automation). The bridge has no opinions about what's displayed or what button presses mean.
 
 ## Code structure
 
@@ -39,10 +22,22 @@ src/
 ├── server.rs      — WebSocket server, per-client handler
 ```
 
-## WebSocket protocol
+## Key design decisions
 
-See `docs/requirement-gathering.md` section R-5 for the full protocol spec.
+- **Rust** over Swift/Node — single binary, existing HID crate, mature async ecosystem
+- **WebSocket** over stdin/stdout — standalone, testable, multi-client, binary frames
 
-## Research
+## Build & run
 
-Comprehensive deep research in `docs/deep-research/stream-deck-xl-direct-control/`.
+```bash
+cargo build --release
+./target/release/streamdeck-bridge --port 9001
+```
+
+## Documentation
+
+- [`docs/protocol.md`](docs/protocol.md) — Full WebSocket protocol reference
+- [`docs/architecture.md`](docs/architecture.md) — Layer definitions and design decisions
+- [`docs/vision.md`](docs/vision.md) — Design principles and scope
+- [`docs/design.md`](docs/design.md) — Use cases, requirements, user stories
+- [`docs/deep-research/`](docs/deep-research/) — Hardware/protocol/ecosystem research
