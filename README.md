@@ -2,6 +2,8 @@
 
 The Elgato Stream Deck XL is 32 LCD buttons in an 8x4 grid — each one a tiny 96x96 pixel screen you can set to any image, backed by a physical key that registers press and release. It's a remarkably capable piece of hardware trapped behind limited software. Elgato's official app locks you into a plugin marketplace. Every open-source alternative ships as a complete application with its own UI, its own config format, and its own ideas about what your buttons should do. None of them let you just talk to the device.
 
+![Stream Deck Bridge overview](images/streamdeck-bridge-overview.jpg)
+
 Stream Deck Bridge is a control plane for the hardware. It's a small Rust binary that handles the USB protocol — JPEG encoding, HID report chunking, device detection, image caching — and exposes everything through a WebSocket API on localhost. Your code connects, sends JSON to set button images, and receives events when buttons are pressed. The bridge manages the device. You manage the experience.
 
 This is intentionally half of the picture. The system is designed as two pieces:
