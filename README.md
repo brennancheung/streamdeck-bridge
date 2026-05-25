@@ -17,9 +17,12 @@ The bridge auto-detects the Stream Deck on USB and starts listening on `ws://loc
 
 ## What You Can Build
 
-Connect from any language with a WebSocket library. Here are a few examples in Python to give you a feel for the API.
+Connect from any language with a WebSocket library. Here are a few examples to give you a feel for the API.
 
 ### Paint buttons
+
+<details open>
+<summary>Python</summary>
 
 ```python
 import asyncio, json, websockets
@@ -27,17 +30,34 @@ import asyncio, json, websockets
 async def main():
     async with websockets.connect("ws://localhost:9001") as ws:
         await ws.recv()  # device_connected event
-
-        # Set button 0 to red
         await ws.send(json.dumps({"cmd": "set_color", "key": 0, "r": 255, "g": 0, "b": 0}))
-
-        # Set button 1 to blue
         await ws.send(json.dumps({"cmd": "set_color", "key": 1, "r": 0, "g": 0, "b": 255}))
 
 asyncio.run(main())
 ```
 
+</details>
+
+<details>
+<summary>TypeScript</summary>
+
+```typescript
+import WebSocket from "ws";
+
+const ws = new WebSocket("ws://localhost:9001");
+
+ws.on("open", () => {
+  ws.send(JSON.stringify({ cmd: "set_color", key: 0, r: 255, g: 0, b: 0 }));
+  ws.send(JSON.stringify({ cmd: "set_color", key: 1, r: 0, g: 0, b: 255 }));
+});
+```
+
+</details>
+
 ### React to button presses
+
+<details open>
+<summary>Python</summary>
 
 ```python
 async def listen():
@@ -51,14 +71,37 @@ async def listen():
 asyncio.run(listen())
 ```
 
+</details>
+
+<details>
+<summary>TypeScript</summary>
+
+```typescript
+import WebSocket from "ws";
+
+const ws = new WebSocket("ws://localhost:9001");
+
+ws.on("message", (data: WebSocket.Data) => {
+  const event = JSON.parse(data.toString());
+  if (event.event === "key_down") {
+    console.log(`Button ${event.key} pressed`);
+  }
+});
+```
+
+</details>
+
 ### Display an image
+
+Image commands use two frames: a JSON command, then the image data as a binary frame.
+
+<details open>
+<summary>Python</summary>
 
 ```python
 async def show_image():
     async with websockets.connect("ws://localhost:9001") as ws:
         await ws.recv()
-
-        # Send image command, then the image data as a binary frame
         await ws.send(json.dumps({"cmd": "set_image_jpeg", "key": 0}))
         with open("icon.jpg", "rb") as f:
             await ws.send(f.read())
@@ -66,9 +109,31 @@ async def show_image():
 asyncio.run(show_image())
 ```
 
+</details>
+
+<details>
+<summary>TypeScript</summary>
+
+```typescript
+import WebSocket from "ws";
+import { readFileSync } from "fs";
+
+const ws = new WebSocket("ws://localhost:9001");
+
+ws.on("open", () => {
+  ws.send(JSON.stringify({ cmd: "set_image_jpeg", key: 0 }));
+  ws.send(readFileSync("icon.jpg"));
+});
+```
+
+</details>
+
 ### Build a CI status board
 
 Multiple clients can connect at the same time. A monitoring script can update a few status buttons while your main application controls the rest.
+
+<details open>
+<summary>Python</summary>
 
 ```python
 async def ci_monitor():
@@ -76,13 +141,35 @@ async def ci_monitor():
         await ws.recv()
         while True:
             status = check_build_status()  # your CI polling logic
-            color = {"pass": (0,255,0), "fail": (255,0,0), "running": (255,255,0)}[status]
-            r, g, b = color
+            r, g, b = {"pass": (0,255,0), "fail": (255,0,0), "running": (255,255,0)}[status]
             await ws.send(json.dumps({"cmd": "set_color", "key": 24, "r": r, "g": g, "b": b}))
             await asyncio.sleep(30)
 ```
 
-These are toy examples — the point is that anything that can open a WebSocket can control the hardware. Elixir, Go, Ruby, Rust, a shell script piping through `websocat`, JavaScript in a browser (for testing) — the bridge doesn't care.
+</details>
+
+<details>
+<summary>TypeScript</summary>
+
+```typescript
+import WebSocket from "ws";
+
+const ws = new WebSocket("ws://localhost:9001");
+
+ws.on("open", async () => {
+  while (true) {
+    const status = await checkBuildStatus();
+    const colors = { pass: [0,255,0], fail: [255,0,0], running: [255,255,0] };
+    const [r, g, b] = colors[status];
+    ws.send(JSON.stringify({ cmd: "set_color", key: 24, r, g, b }));
+    await new Promise((resolve) => setTimeout(resolve, 30000));
+  }
+});
+```
+
+</details>
+
+The protocol is just JSON over WebSocket — any language works. See [`INTEGRATION.md`](INTEGRATION.md) for complete examples in Elixir, Node.js, and shell.
 
 ## Protocol Overview
 
