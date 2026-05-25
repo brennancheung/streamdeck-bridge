@@ -1,13 +1,5 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Build
-dist/
-build/
-out/
-*.tsbuildinfo
+# Rust
+target/
 
 # Environment
 .env
@@ -27,12 +19,3 @@ Thumbs.db
 
 # Logs
 *.log
-npm-debug.log*
-pnpm-debug.log*
-
-# Test coverage
-coverage/
-
-# Temp
-tmp/
-.tmp/
