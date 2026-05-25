@@ -13,8 +13,11 @@ pub enum Command {
         key: u8,
     },
     SetPanelImage {
+        #[allow(dead_code)]
         format: ImageFormat,
+        #[allow(dead_code)]
         width: u32,
+        #[allow(dead_code)]
         height: u32,
     },
     SetColor {

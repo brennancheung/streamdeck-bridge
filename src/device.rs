@@ -316,3 +316,92 @@ fn validate_key(key: u8, max: usize) -> Result<usize, String> {
         Ok(idx)
     }
 }
+
+pub async fn run_test(default_port: u16) -> Result<(), String> {
+    println!("Scanning for Stream Deck...");
+
+    let (deck, kind) = try_connect()
+        .ok_or("No Stream Deck found. Is it plugged in and not claimed by another application?")?;
+    let deck = Arc::new(deck);
+
+    let serial = deck
+        .serial_number()
+        .await
+        .unwrap_or_else(|_| "unknown".into());
+    let firmware = deck
+        .firmware_version()
+        .await
+        .unwrap_or_else(|_| "unknown".into());
+    let num_keys = kind.key_count();
+
+    println!(
+        "Found: {} (serial: {}, firmware: {})",
+        format!("{:?}", kind).to_lowercase(),
+        serial,
+        firmware
+    );
+    println!(
+        "Layout: {} keys ({}x{})",
+        num_keys,
+        kind.row_count(),
+        kind.column_count()
+    );
+    println!();
+    println!("Running visual test...");
+
+    for key in 0..num_keys {
+        let (r, g, b) = rainbow_color(key as f32 / num_keys as f32);
+        let img = solid_color(r, g, b);
+        let _ = deck.set_button_image(key, img).await;
+        let _ = deck.flush().await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    tokio::time::sleep(Duration::from_millis(400)).await;
+
+    for key in 0..num_keys {
+        let _ = deck
+            .set_button_image(key, solid_color(255, 255, 255))
+            .await;
+    }
+    let _ = deck.flush().await;
+    tokio::time::sleep(Duration::from_millis(150)).await;
+
+    for key in 0..num_keys {
+        let _ = deck
+            .set_button_image(key, solid_color(0, 200, 80))
+            .await;
+    }
+    let _ = deck.flush().await;
+    tokio::time::sleep(Duration::from_millis(600)).await;
+
+    let _ = deck.reset().await;
+
+    println!();
+    println!("Test passed! Stream Deck is working correctly.");
+    println!();
+    println!("Next steps:");
+    println!("  Start the bridge:  streamdeck-bridge");
+    println!("  Custom port:       streamdeck-bridge --port <PORT>");
+    println!("  Install service:   scripts/install-launchd.sh");
+    println!("  Connect via:       ws://localhost:{}", default_port);
+
+    Ok(())
+}
+
+fn rainbow_color(t: f32) -> (u8, u8, u8) {
+    let h = t * 6.0;
+    let sector = h.floor() as u8 % 6;
+    let f = h - h.floor();
+    let q = 1.0 - f;
+
+    let (r, g, b) = match sector {
+        0 => (1.0, f, 0.0),
+        1 => (q, 1.0, 0.0),
+        2 => (0.0, 1.0, f),
+        3 => (0.0, q, 1.0),
+        4 => (f, 0.0, 1.0),
+        _ => (1.0, 0.0, q),
+    };
+
+    ((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8)
+}

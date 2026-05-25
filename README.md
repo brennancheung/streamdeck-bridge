@@ -19,7 +19,7 @@ cargo build --release
 ./target/release/streamdeck-bridge
 ```
 
-The bridge auto-detects the Stream Deck on USB and starts listening on `ws://localhost:37984`. That's it.
+The bridge auto-detects the Stream Deck on USB and starts listening on `ws://localhost:9001`. That's it.
 
 ## What You Can Build
 
@@ -34,7 +34,7 @@ Connect from any language with a WebSocket library. Here are a few examples to g
 import asyncio, json, websockets
 
 async def main():
-    async with websockets.connect("ws://localhost:37984") as ws:
+    async with websockets.connect("ws://localhost:9001") as ws:
         await ws.recv()  # device_connected event
         await ws.send(json.dumps({"cmd": "set_color", "key": 0, "r": 255, "g": 0, "b": 0}))
         await ws.send(json.dumps({"cmd": "set_color", "key": 1, "r": 0, "g": 0, "b": 255}))
@@ -50,7 +50,7 @@ asyncio.run(main())
 ```typescript
 import WebSocket from "ws";
 
-const ws = new WebSocket("ws://localhost:37984");
+const ws = new WebSocket("ws://localhost:9001");
 
 ws.on("open", () => {
   ws.send(JSON.stringify({ cmd: "set_color", key: 0, r: 255, g: 0, b: 0 }));
@@ -67,7 +67,7 @@ ws.on("open", () => {
 
 ```python
 async def listen():
-    async with websockets.connect("ws://localhost:37984") as ws:
+    async with websockets.connect("ws://localhost:9001") as ws:
         await ws.recv()  # device_connected
         while True:
             event = json.loads(await ws.recv())
@@ -85,7 +85,7 @@ asyncio.run(listen())
 ```typescript
 import WebSocket from "ws";
 
-const ws = new WebSocket("ws://localhost:37984");
+const ws = new WebSocket("ws://localhost:9001");
 
 ws.on("message", (data: WebSocket.Data) => {
   const event = JSON.parse(data.toString());
@@ -106,7 +106,7 @@ Image commands use two frames: a JSON command, then the image data as a binary f
 
 ```python
 async def show_image():
-    async with websockets.connect("ws://localhost:37984") as ws:
+    async with websockets.connect("ws://localhost:9001") as ws:
         await ws.recv()
         await ws.send(json.dumps({"cmd": "set_image_jpeg", "key": 0}))
         with open("icon.jpg", "rb") as f:
@@ -124,7 +124,7 @@ asyncio.run(show_image())
 import WebSocket from "ws";
 import { readFileSync } from "fs";
 
-const ws = new WebSocket("ws://localhost:37984");
+const ws = new WebSocket("ws://localhost:9001");
 
 ws.on("open", () => {
   ws.send(JSON.stringify({ cmd: "set_image_jpeg", key: 0 }));
@@ -143,7 +143,7 @@ Multiple clients can connect at the same time. A monitoring script can update a 
 
 ```python
 async def ci_monitor():
-    async with websockets.connect("ws://localhost:37984") as ws:
+    async with websockets.connect("ws://localhost:9001") as ws:
         await ws.recv()
         while True:
             status = check_build_status()  # your CI polling logic
@@ -160,7 +160,7 @@ async def ci_monitor():
 ```typescript
 import WebSocket from "ws";
 
-const ws = new WebSocket("ws://localhost:37984");
+const ws = new WebSocket("ws://localhost:9001");
 
 ws.on("open", async () => {
   while (true) {
@@ -319,7 +319,7 @@ This runs a rainbow animation across all buttons to verify your Stream Deck is c
 **Run:**
 
 ```bash
-# Default port (37984)
+# Default port (9001)
 ./target/release/streamdeck-bridge
 
 # Custom port
@@ -329,11 +329,20 @@ This runs a rainbow animation across all buttons to verify your Stream Deck is c
 **Install as a background service (macOS):**
 
 ```bash
+# Default (port 9001, binary from target/release/)
 scripts/install-launchd.sh
-scripts/install-launchd.sh --port 8080  # custom port
+
+# Custom port
+scripts/install-launchd.sh --port 8080
+
+# Custom binary location (e.g., after copying to /usr/local/bin)
+scripts/install-launchd.sh --binary /usr/local/bin/streamdeck-bridge
+
+# Both
+scripts/install-launchd.sh --port 8080 --binary /usr/local/bin/streamdeck-bridge
 ```
 
-The service starts on login and restarts on crash. Uninstall with `scripts/uninstall-launchd.sh`.
+The service starts on login and restarts on crash. Logs go to `~/Library/Logs/streamdeck-bridge/`. Uninstall with `scripts/uninstall-launchd.sh`.
 
 **Linux note:** You may need udev rules to access the device without root. Create `/etc/udev/rules.d/50-streamdeck.rules`:
 
